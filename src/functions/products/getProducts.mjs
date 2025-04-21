@@ -8,8 +8,6 @@ export const handler = async (event) => {
         // Get products from DynamoDB
         const products = await db.scan(process.env.PRODUCT_TABLE);
 
-        console.log("Nhat");
-
         // If query parameter is provided, filter products
         let filteredProducts = products;
         if (query) {
