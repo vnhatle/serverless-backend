@@ -10,7 +10,9 @@ phases:
     build:
         commands:
             - echo Building the Lambda function...
-            #- zip -r serverless-backend.zip . # Package Lambda function
-artifacts:
-    files:
-        - "**/*"
+            - zip -r serverless-backend.zip . # Package Lambda function
+
+    post_build:
+        commands:
+            - aws lambda update-function-code --function-name getProductsFunction --zip-file fileb://serverless-backend.zip
+            - aws lambda update-function-code --function-name placeOrderFunction --zip-file fileb://serverless-backend.zip
