@@ -1,0 +1,26 @@
+{
+  "name": "serverless-ecommerce-backend",
+  "version": "1.0.0",
+  "description": "Serverless backend for e-commerce application",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "sam build && sam deploy --guided"
+  },
+  "keywords": [
+    "serverless",
+    "ecommerce",
+    "aws",
+    "lambda"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.410.0",
+    "@aws-sdk/lib-dynamodb": "^3.410.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+  }
+}

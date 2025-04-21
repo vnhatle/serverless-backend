@@ -1,0 +1,223 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: E-commerce Serverless Backend
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+    AllowedValues:
+      - dev
+      - prod
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 128
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        PRODUCT_TABLE: !Ref ProductTable
+        USER_TABLE: !Ref UserTable
+        ORDER_TABLE: !Ref OrderTable
+
+Resources:
+  # API Gateway
+  EcommerceApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+        AddDefaultAuthorizerToCorsPreflight: false
+
+  # DynamoDB Tables
+  ProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-products
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  OrderTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Cognito User Pool for Authentication
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${Environment}-ecommerce-user-pool
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub ${Environment}-ecommerce-app-client
+      GenerateSecret: false
+      RefreshTokenValidity: 30
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+
+  # Lambda Functions
+  # Products API
+  GetProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/products/getProducts
+      Handler: index.mjs
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        GetProducts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EcommerceApi
+            Path: /products
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+  GetProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/products/getProduct
+      Handler: index.mjs
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProductTable
+      Events:
+        GetProduct:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EcommerceApi
+            Path: /products/{id}
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+  # Orders API
+  CreateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/orders/createOrder
+      Handler: index.mjs
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+      Events:
+        CreateOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EcommerceApi
+            Path: /orders
+            Method: post
+
+  GetOrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/orders/getOrders
+      Handler: index.mjs
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrderTable
+      Events:
+        GetOrders:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EcommerceApi
+            Path: /orders
+            Method: get
+
+  # Users API
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/users/getUser
+      Handler: index.mjs
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EcommerceApi
+            Path: /users/{id}
+            Method: get
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${EcommerceApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+  
+  UserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref UserPool
+    
+  UserPoolClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref UserPoolClient
