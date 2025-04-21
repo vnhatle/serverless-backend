@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+    install:
+        runtime-versions:
+            nodejs: 14
+        commands:
+            - echo Installing dependencies...
+            - npm install
+    build:
+        commands:
+            - echo Building the Lambda function...
+            - zip -r serverless-backend-function.zip . # Package Lambda function
+artifacts:
+    files:
+        - serverless-backend-function.zip
