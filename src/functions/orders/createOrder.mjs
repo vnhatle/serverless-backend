@@ -3,12 +3,11 @@ import db from "../../utils/db.mjs";
 
 export const handler = async (event) => {
     try {
-        const { body } = event;
-        const orderData = JSON.parse(body);
+        const orderData = event['body-json'].body;
 
         // Get user information from the event context (Auth from Cognito)
-        const userId = event.requestContext.authorizer.claims.sub;
-        const userEmail = event.requestContext.authorizer.claims.email;
+        const userId = event.context.sub;
+        const userEmail = event.context.email;
 
         // Create new order with generated ID
         const order = {
